@@ -7,9 +7,9 @@ header{padding:15px 18px;background:#101010;border-bottom:3px solid #ff7900}h1{f
 main{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;padding:14px;align-items:start}
 .map-wrap{position:relative;width:100%;overflow:hidden;background:#333;border:2px solid #444;border-radius:8px;line-height:0;touch-action:manipulation}
 #map{display:block;width:100%;height:auto;user-select:none;-webkit-user-drag:none}
-.marker{position:absolute;transform:translate(-50%,-50%);width:15px;height:17px;border:1px solid #fff;border-radius:4px;background:rgba(0,0,0,.68);color:#fff;font-weight:800;font-size:9px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px #0008;cursor:pointer;padding:0}
+.marker{position:absolute;transform:translate(-50%,-50%);width:21px;height:24px;border:1.5px solid #fff;border-radius:6px;background:rgba(0,0,0,.78);color:#fff;font-weight:800;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px #0009;cursor:pointer;padding:0}
 .marker:focus,.marker:hover{z-index:5;outline:3px solid #ffbd55;outline-offset:1px}.marker.active{background:#ff7900;color:#111;border-color:#111;outline:3px solid white;z-index:6}
-.marker.has-description:after{content:"";position:absolute;right:-2px;top:-2px;width:5px;height:5px;border-radius:50%;background:#58df78;border:1px solid #111}
+.marker.has-description:after{content:"";position:absolute;right:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#58df78;border:1px solid #111}
 .panel{background:#252525;border:1px solid #444;border-radius:8px;padding:14px;position:sticky;top:12px}.panel h2{font-size:1.1rem;margin:0 0 10px}
 label{display:block;font-size:.9rem;color:#eee;margin:12px 0 5px}input,textarea,button{font:inherit}
 input,textarea{width:100%;border:1px solid #777;border-radius:6px;padding:9px;background:#111;color:#fff}textarea{min-height:105px;resize:vertical}
@@ -27,38 +27,92 @@ button.secondary{background:#444;color:#fff;border:1px solid #666}.actions{displ
 </div><p class="hint">Per scegliere manualmente la partenza, premi “Imposta partenza” e tocca il punto sulla mappa. La linea è indicativa e non segue necessariamente le strade.</p>
 </section>
 <aside class="panel"><h2>Trova una postazione</h2>
+<div id="adminAccess" style="border:1px solid #555;border-radius:7px;padding:10px;margin-bottom:12px">
+  <div id="loggedOut"><p class="hint" style="margin-top:0">Le descrizioni sono visibili a tutti. Solo l'amministratrice può modificarle.</p>
+    <label for="adminEmail">Email amministratrice</label><input id="adminEmail" type="email" autocomplete="username" placeholder="La tua email">
+    <label for="adminPassword">Password</label><input id="adminPassword" type="password" autocomplete="current-password" placeholder="Password dell'account mappa">
+    <div class="actions"><button class="action" id="loginBtn">Accedi</button></div>
+  </div>
+  <div id="loggedIn" hidden><span id="adminUser"></span><div class="actions"><button class="action secondary" id="logoutBtn">Esci</button></div></div>
+</div>
 <label for="searchNum">Numero postazione (1–37)</label><div class="actions" style="margin-top:0"><input id="searchNum" type="number" min="1" max="37" placeholder="Es. 12"><button class="action" id="searchBtn">Cerca</button></div>
 <div id="selectedTitle" style="font-weight:800;font-size:1.05rem;margin-top:16px">Nessuna postazione selezionata</div>
-<label for="description">Descrizione / informazioni</label><textarea id="description" placeholder="Aggiungi qui le informazioni per questa postazione…" disabled></textarea>
+<label for="description">Descrizione / informazioni</label><textarea id="description" placeholder="Seleziona una postazione per leggere le informazioni…" disabled></textarea>
 <div class="actions"><button class="action" id="saveBtn" disabled>Salva descrizione</button><button class="action secondary" id="routeBtn" disabled>Indica percorso</button></div>
 <div class="actions"><button class="action secondary" id="startBtn">Imposta partenza</button><button class="action secondary" id="clearRouteBtn">Cancella percorso</button></div>
 <div class="actions"><button class="action secondary" id="gpsBtn">Usa la mia posizione GPS</button></div>
 <div id="status" class="status" role="status">Seleziona un numero sulla mappa oppure cercalo qui.</div>
-<div class="legend">Le descrizioni vengono salvate solo nel browser e sul dispositivo in uso. Per condividerle con tutti i visitatori serve collegare la pagina a un archivio online. Il GPS non può indicare un percorso stradale preciso senza coordinate geografiche delle postazioni.</div>
+<div class="legend">Le descrizioni vengono caricate e salvate online e sono visibili a tutti. Le modifiche richiedono l’accesso amministratore. Il GPS non può indicare un percorso stradale preciso senza coordinate geografiche delle postazioni.</div>
 </aside></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL = 'https://qscyfqexmqgvyiitbowc.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_jNnYg-C5KlqNv5Qo7XwNLQ_so_aYQtQ';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const points = {"1":[700,492],"2":[716,523],"3":[643,606],"4":[586,619],"5":[534,538],"6":[459,531],"7":[536,601],"8":[507,689],"9":[323,697],"10":[81,653],"11":[190,642],"12":[417,575],"13":[535,425],"14":[520,480],"15":[649,410],"16":[699,421],"17":[770,465],"18":[820,463],"19":[636,289],"20":[839,306],"21":[988,318],"22":[1087,276],"23":[1171,275],"24":[1220,92],"25":[1236,272],"26":[1370,211],"27":[1375,256],"28":[1422,286],"29":[1219,355],"30":[1280,447],"31":[1235,482],"32":[1475,460],"33":[1380,583],"34":[1028,703],"35":[928,780],"36":[851,721],"37":[779,555]};
 const wrap=document.getElementById('mapWrap'), img=document.getElementById('map');
 const desc=document.getElementById('description'), title=document.getElementById('selectedTitle'), statusEl=document.getElementById('status');
 const line=document.getElementById('routeLine'), dot=document.getElementById('startDot');
 let selected=null,pickingStart=false,startPoint=null;
 const key='lumino-halloween-2026-postazioni';
-function readData(){try{return JSON.parse(localStorage.getItem(key)||'{}')}catch(e){return {}}}
+let descriptions = {};
+let currentUser = null;
+let isLoading = false;
+function readData(){ return descriptions; }
 function setPos(el,x,y){el.style.left=(x/1506*100)+'%';el.style.top=(y/839*100)+'%'}
+function setStatus(message){ statusEl.textContent = message; }
+function updateAdminUI(){
+  const loggedIn = !!currentUser;
+  document.getElementById('loggedOut').hidden = loggedIn;
+  document.getElementById('loggedIn').hidden = !loggedIn;
+  document.getElementById('adminUser').textContent = loggedIn ? 'Accesso effettuato: '+currentUser.email : '';
+  document.getElementById('saveBtn').hidden = !loggedIn;
+  document.getElementById('saveBtn').disabled = !loggedIn || !selected;
+  desc.readOnly = !loggedIn;
+  desc.placeholder = loggedIn ? 'Aggiungi qui le informazioni per questa postazione…' : 'Informazioni della postazione selezionata';
+}
+async function loadDescriptions(){
+  isLoading = true;
+  const {data,error} = await supabaseClient.from('postazioni').select('numero, descrizione');
+  isLoading = false;
+  if(error){ setStatus('Non riesco a caricare le descrizioni online. Ricarica la pagina o riprova più tardi.'); console.error(error); return; }
+  const online = {};
+  (data || []).forEach(row => { online[String(row.numero)] = row.descrizione || ''; });
+  descriptions = online;
+  // Importa le vecchie descrizioni salvate in questo browser solo se l'archivio online è vuoto.
+  if((data || []).length === 0 && currentUser){
+    let local = {};
+    try { local = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+    const rows = Object.entries(local).filter(([n, value]) => points[n] && String(value || '').trim()).map(([n, value]) => ({numero:Number(n), descrizione:String(value), aggiornato_il:new Date().toISOString()}));
+    if(rows.length && confirm('Ho trovato descrizioni salvate in precedenza su questo computer. Vuoi copiarle nell’archivio online, così saranno visibili a tutti?')){
+      const {error:upErr} = await supabaseClient.from('postazioni').upsert(rows, {onConflict:'numero'});
+      if(upErr){ setStatus('Importazione non riuscita: controlla l’accesso amministratore.'); console.error(upErr); }
+      else { rows.forEach(r => descriptions[String(r.numero)] = r.descrizione); setStatus('Descrizioni precedenti importate e condivise online.'); }
+    }
+  }
+  refresh();
+  if(selected !== null) desc.value = descriptions[String(selected)] || '';
+}
+
 Object.entries(points).forEach(([num,xy])=>{const b=document.createElement('button');b.className='marker';b.type='button';b.textContent=num;b.setAttribute('aria-label','Postazione '+num);b.dataset.num=num;setPos(b,xy[0],xy[1]);b.addEventListener('click',e=>{e.stopPropagation();selectStation(Number(num))});wrap.appendChild(b)});
 function refresh(){const data=readData();document.querySelectorAll('.marker').forEach(b=>b.classList.toggle('has-description',!!(data[b.dataset.num]||'').trim()))}
 function selectStation(n){if(!points[n]){statusEl.textContent='Inserisci un numero compreso tra 1 e 37.';return}
 selected=n;document.querySelectorAll('.marker').forEach(b=>b.classList.toggle('active',Number(b.dataset.num)===n));
-title.textContent='Postazione '+n;desc.disabled=false;desc.value=readData()[n]||'';document.getElementById('saveBtn').disabled=false;document.getElementById('routeBtn').disabled=false;
-document.getElementById('searchNum').value=n;statusEl.textContent='Puoi leggere o modificare la descrizione della postazione '+n+'.';if(startPoint)drawRoute()}
+title.textContent='Postazione '+n;desc.disabled=false;desc.value=readData()[n]||'';document.getElementById('routeBtn').disabled=false;
+document.getElementById('searchNum').value=n;updateAdminUI();setStatus((currentUser?'Puoi modificare':'Puoi leggere')+' la descrizione della postazione '+n+'.');if(startPoint)drawRoute()}
 document.getElementById('searchBtn').addEventListener('click',()=>selectStation(Number(document.getElementById('searchNum').value)));
 document.getElementById('searchNum').addEventListener('keydown',e=>{if(e.key==='Enter')selectStation(Number(e.target.value))});
-document.getElementById('saveBtn').addEventListener('click',()=>{if(!selected)return;const data=readData();data[selected]=desc.value;localStorage.setItem(key,JSON.stringify(data));refresh();statusEl.textContent='Descrizione della postazione '+selected+' salvata su questo dispositivo.'});
+document.getElementById('saveBtn').addEventListener('click',async()=>{if(!selected || !currentUser)return;const value=desc.value.trim();const {error}=await supabaseClient.from('postazioni').upsert({numero:selected,descrizione:value,aggiornato_il:new Date().toISOString()},{onConflict:'numero'});if(error){setStatus('Salvataggio non riuscito. Verifica che l’email dell’accesso sia quella autorizzata.');console.error(error);return;}descriptions[String(selected)]=value;refresh();setStatus('Descrizione della postazione '+selected+' salvata online e visibile a tutti.');});
+document.getElementById('loginBtn').addEventListener('click',async()=>{const email=document.getElementById('adminEmail').value.trim();const password=document.getElementById('adminPassword').value;if(!email||!password){setStatus('Inserisci email e password.');return;}const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});if(error){setStatus('Accesso non riuscito. Verifica email e password.');console.error(error);return;}currentUser=data.user;updateAdminUI();setStatus('Accesso effettuato. Carico le descrizioni online…');await loadDescriptions();});
+document.getElementById('logoutBtn').addEventListener('click',async()=>{await supabaseClient.auth.signOut();currentUser=null;updateAdminUI();desc.value=selected?descriptions[String(selected)]||'':'';setStatus('Sei uscita dall’accesso amministratore. Le descrizioni restano visibili a tutti.');});
+supabaseClient.auth.onAuthStateChange((_event,session)=>{currentUser=session?.user||null;updateAdminUI();if(currentUser)loadDescriptions();});
 document.getElementById('startBtn').addEventListener('click',()=>{pickingStart=true;statusEl.textContent='Tocca la mappa nel punto da cui vuoi partire.';wrap.style.cursor='crosshair'});
 wrap.addEventListener('click',e=>{if(!pickingStart)return;const r=wrap.getBoundingClientRect();startPoint={x:(e.clientX-r.left)/r.width*1506,y:(e.clientY-r.top)/r.height*839};pickingStart=false;wrap.style.cursor='';statusEl.textContent='Partenza impostata. Seleziona una postazione e premi “Indica percorso”.';if(selected)drawRoute()});
 function drawRoute(){if(!selected||!startPoint)return;const p=points[selected];line.setAttribute('x1',startPoint.x);line.setAttribute('y1',startPoint.y);line.setAttribute('x2',p[0]);line.setAttribute('y2',p[1]);dot.setAttribute('cx',startPoint.x);dot.setAttribute('cy',startPoint.y);line.setAttribute('visibility','visible');dot.setAttribute('visibility','visible')}
 document.getElementById('routeBtn').addEventListener('click',()=>{if(!selected)return;if(!startPoint){statusEl.textContent='Prima premi “Imposta partenza” e tocca il punto di partenza sulla mappa.';pickingStart=true;wrap.style.cursor='crosshair';return}drawRoute();statusEl.textContent='Linea indicativa dalla partenza alla postazione '+selected+'. Non è un itinerario stradale verificato.'});
 document.getElementById('clearRouteBtn').addEventListener('click',()=>{startPoint=null;line.setAttribute('visibility','hidden');dot.setAttribute('visibility','hidden');statusEl.textContent='Percorso cancellato.'});
 document.getElementById('gpsBtn').addEventListener('click',()=>{if(!navigator.geolocation){statusEl.textContent='Questo browser non supporta la geolocalizzazione.';return}statusEl.textContent='Richiesta della posizione GPS…';navigator.geolocation.getCurrentPosition(()=>{statusEl.textContent='GPS acquisito. Per trasformarlo in un percorso sulla mappa servono le coordinate reali delle postazioni. Puoi impostare manualmente la partenza sulla mappa.'},()=>{statusEl.textContent='Posizione non disponibile o permesso negato. Puoi impostare la partenza toccando la mappa.'},{enableHighAccuracy:true,timeout:10000})});
+updateAdminUI();
+loadDescriptions();
 refresh();
 </script></body></html>
